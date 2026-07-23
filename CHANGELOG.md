@@ -22,6 +22,14 @@ All notable changes to this project are documented here. The format follows
   `Invoke-WebRequest`, so every KB command as written (`curl -sS "..."`)
   failed with "A parameter cannot be found that matches parameter name 'sS'".
 
+### Added
+
+- Added a deterministic installation doctor with human and JSON output for
+  Python, bundle integrity, feedback-host configuration, `curl`, and local
+  SolidWorks registration.
+- Added strict readiness mode, credential-safe diagnostics, runtime tests, and
+  a static zero-network boundary check.
+
 ## [1.2.0] - 2026-08-02
 
 ### Added
