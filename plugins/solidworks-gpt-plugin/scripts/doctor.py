@@ -35,7 +35,11 @@ def result(
 
 
 def safe_host_label(host: str) -> str:
-    """Return a credential-free label suitable for diagnostics."""
+    """Return a credential-free origin label suitable for diagnostics.
+
+    Paths can contain tenant names, opaque identifiers, or accidental secrets,
+    so diagnostics deliberately expose only the parsed origin.
+    """
     try:
         parsed = urlparse(host.strip())
         hostname = parsed.hostname
@@ -46,8 +50,7 @@ def safe_host_label(host: str) -> str:
         return "<invalid>"
     display_host = f"[{hostname}]" if ":" in hostname else hostname
     authority = display_host if port is None else f"{display_host}:{port}"
-    path = parsed.path.rstrip("/")
-    return f"{parsed.scheme.lower()}://{authority}{path}"
+    return f"{parsed.scheme.lower()}://{authority}"
 
 
 def validate_feedback_host(host: str) -> Tuple[bool, str, str]:

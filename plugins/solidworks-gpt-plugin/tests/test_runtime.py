@@ -142,8 +142,10 @@ class DoctorTests(unittest.TestCase):
             )
         )
 
-    def test_invalid_host_does_not_echo_embedded_credentials(self) -> None:
-        secret_host = "https://operator:do-not-print@example.com/private?token=also-secret"
+    def test_invalid_host_does_not_echo_embedded_secrets(self) -> None:
+        secret_host = (
+            "https://operator:do-not-print@example.com/path-secret?token=query-secret"
+        )
         with patch("doctor.shutil.which", return_value="curl"), patch(
             "doctor.detect_solidworks_registration",
             return_value=(True, "registered in test"),
@@ -153,8 +155,10 @@ class DoctorTests(unittest.TestCase):
         serialized = json.dumps(report)
         self.assertFalse(report["ready"])
         self.assertNotIn("do-not-print", serialized)
-        self.assertNotIn("also-secret", serialized)
-        self.assertIn("https://example.com/private", serialized)
+        self.assertNotIn("path-secret", serialized)
+        self.assertNotIn("query-secret", serialized)
+        self.assertIn("https://example.com", serialized)
+        self.assertNotIn("https://example.com/", serialized)
 
     def test_json_cli_is_machine_readable_and_network_free(self) -> None:
         output = io.StringIO()
