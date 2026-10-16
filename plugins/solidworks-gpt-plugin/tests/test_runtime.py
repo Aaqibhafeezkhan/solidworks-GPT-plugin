@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import json
+import io
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
+import doctor  # noqa: E402
 from submit_feedback import parse_response  # noqa: E402
 from run_checks import (  # noqa: E402
     find_source_repository_root,
+    network_capable_imports,
     plugin_directory_matches_manifest,
 )
 from sw_session import (  # noqa: E402
@@ -98,6 +103,76 @@ class FeedbackValidationTests(unittest.TestCase):
         body, status = parse_response(json.dumps({"id": "abc"}) + "\n201")
         self.assertEqual(json.loads(body)["id"], "abc")
         self.assertEqual(status, "201")
+
+
+class DoctorTests(unittest.TestCase):
+    def test_network_boundary_detects_from_import_aliases(self) -> None:
+        source = "from urllib import request\nfrom http import client\n"
+        self.assertEqual(
+            ["http.client", "urllib.request"],
+            network_capable_imports(source),
+        )
+
+    def test_report_is_ready_with_optional_dependency_warnings(self) -> None:
+        with patch("doctor.shutil.which", return_value=None), patch(
+            "doctor.detect_solidworks_registration",
+            return_value=(False, "not registered in test"),
+        ):
+            report = doctor.build_report(doctor.PLUGIN_ROOT)
+
+        self.assertTrue(report["ready"])
+        self.assertEqual(report["network_requests"], 0)
+        self.assertEqual(report["summary"]["warnings"], 2)
+        self.assertEqual(report["summary"]["failures"], 0)
+
+    def test_strict_mode_requires_curl_and_solidworks(self) -> None:
+        with patch("doctor.shutil.which", return_value=None), patch(
+            "doctor.detect_solidworks_registration",
+            return_value=(False, "not registered in test"),
+        ):
+            report = doctor.build_report(doctor.PLUGIN_ROOT, strict=True)
+
+        self.assertFalse(report["ready"])
+        self.assertEqual(report["summary"]["failures"], 2)
+        self.assertTrue(
+            all(
+                item["required"]
+                for item in report["checks"]
+                if item["id"] in {"curl", "solidworks"}
+            )
+        )
+
+    def test_invalid_host_does_not_echo_embedded_secrets(self) -> None:
+        secret_host = (
+            "https://operator:do-not-print@example.com/path-secret?token=query-secret"
+        )
+        with patch("doctor.shutil.which", return_value="curl"), patch(
+            "doctor.detect_solidworks_registration",
+            return_value=(True, "registered in test"),
+        ):
+            report = doctor.build_report(doctor.PLUGIN_ROOT, host=secret_host)
+
+        serialized = json.dumps(report)
+        self.assertFalse(report["ready"])
+        self.assertNotIn("do-not-print", serialized)
+        self.assertNotIn("path-secret", serialized)
+        self.assertNotIn("query-secret", serialized)
+        self.assertIn("https://example.com", serialized)
+        self.assertNotIn("https://example.com/", serialized)
+
+    def test_json_cli_is_machine_readable_and_network_free(self) -> None:
+        output = io.StringIO()
+        with patch("doctor.shutil.which", return_value="curl"), patch(
+            "doctor.detect_solidworks_registration",
+            return_value=(True, "registered in test"),
+        ), redirect_stdout(output):
+            exit_code = doctor.main(["--json"])
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(payload["ready"])
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["network_requests"], 0)
 
 
 class InstalledBundleValidationTests(unittest.TestCase):

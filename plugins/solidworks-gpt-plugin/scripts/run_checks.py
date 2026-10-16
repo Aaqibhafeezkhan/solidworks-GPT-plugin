@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import py_compile
 import re
@@ -156,10 +157,51 @@ def check_python() -> None:
         raise SystemExit(result.returncode)
 
 
+def network_capable_imports(source: str, filename: str = "<doctor>") -> list[str]:
+    """Return forbidden imports, including ``from package import module`` forms."""
+    tree = ast.parse(source, filename=filename)
+    forbidden = {
+        "aiohttp",
+        "http.client",
+        "requests",
+        "socket",
+        "subprocess",
+        "urllib.request",
+        "urllib3",
+    }
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            imported.add(module)
+            imported.update(
+                f"{module}.{alias.name}" if module else alias.name
+                for alias in node.names
+            )
+    return sorted(imported & forbidden)
+
+
+def check_doctor_network_boundary() -> None:
+    """Keep the installation doctor statically free of network-capable modules."""
+    doctor_path = PLUGIN_ROOT / "scripts" / "doctor.py"
+    violations = network_capable_imports(
+        doctor_path.read_text(encoding="utf-8"),
+        str(doctor_path),
+    )
+    if violations:
+        raise ValueError(
+            "Installation doctor must remain zero-network; forbidden imports: "
+            + ", ".join(violations)
+        )
+
+
 def main() -> int:
     check_manifest()
     check_skills()
     check_repository_security()
+    check_doctor_network_boundary()
     load_json(PLUGIN_ROOT / "schemas" / "feedback-submission.schema.json")
     check_python()
     layout = "source checkout" if REPOSITORY_ROOT is not None else "installed bundle"

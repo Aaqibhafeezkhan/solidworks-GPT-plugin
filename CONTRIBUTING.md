@@ -16,8 +16,9 @@ to understand.
    ```
 
 The checks validate the plugin manifest, marketplace entry, skill structure,
-feedback schema, Python syntax, and runtime tests. Pull requests run the same
-suite on Python 3.9 and 3.13.
+feedback schema, Python syntax, runtime tests, and the installation doctor's
+zero-network import boundary. Pull requests run the same suite on Python 3.9
+and 3.13.
 
 ## Where changes belong
 

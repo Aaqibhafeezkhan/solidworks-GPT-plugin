@@ -18,6 +18,19 @@ The plugin does not bundle SolidWorks or an automation server. Actual CAD work
 requires an existing SolidWorks installation and a compatible Codex automation
 surface. Knowledge-base outages do not block local modeling.
 
+## Diagnose local readiness
+
+From this installed bundle, run:
+
+```powershell
+python scripts/doctor.py
+```
+
+The doctor checks Python, bundle integrity, `SW_KB_HOST` syntax, `curl`, and
+SolidWorks COM registration without making a network request or launching
+SolidWorks. Use `--strict` to require both external applications and `--json`
+for machine-readable evidence.
+
 ## Privacy
 
 Feedback stays local unless the user chooses **Yes, send now** or has explicitly
