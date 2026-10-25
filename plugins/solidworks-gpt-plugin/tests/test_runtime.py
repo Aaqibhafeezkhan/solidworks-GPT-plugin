@@ -237,5 +237,62 @@ class InstalledBundleValidationTests(unittest.TestCase):
             )
 
 
+class BundleSchemaValidationTests(unittest.TestCase):
+    """The bundle check validates the schema, not just its file name (#25)."""
+
+    def make_bundle(self, directory: Path, schema: bytes) -> Path:
+        root = directory / "bundle"
+        (root / ".codex-plugin").mkdir(parents=True)
+        (root / ".codex-plugin" / "plugin.json").write_text(
+            json.dumps(
+                {"name": "solidworks-gpt-plugin", "version": "1.0.0", "skills": "skills"}
+            ),
+            encoding="utf-8",
+        )
+        for number in range(1, 6):
+            skill = root / "skills" / f"skill-{number}"
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
+        (root / "schemas").mkdir()
+        (root / "schemas" / "feedback-submission.schema.json").write_bytes(schema)
+        return root
+
+    def test_a_valid_schema_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.make_bundle(Path(directory), b'{"type": "object"}')
+            check = doctor.check_plugin_bundle(root)
+        self.assertEqual(check["status"], "PASS", check)
+
+    def test_a_malformed_schema_fails_with_exit_one(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.make_bundle(Path(directory), b"{broken JSON")
+            check = doctor.check_plugin_bundle(root)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                exit_code = doctor.main(
+                    ["--plugin-root", str(root), "--host", "https://kb.example.test", "--json"]
+                )
+        self.assertEqual(check["status"], "FAIL", check)
+        self.assertIn("Plugin bundle is invalid", check["summary"])
+        self.assertEqual(exit_code, 1)
+        bundle = next(
+            item for item in json.loads(output.getvalue())["checks"] if item["id"] == "plugin_bundle"
+        )
+        self.assertEqual(bundle["status"], "FAIL", bundle)
+
+    def test_a_non_object_schema_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.make_bundle(Path(directory), b'[{"type": "object"}]')
+            check = doctor.check_plugin_bundle(root)
+        self.assertEqual(check["status"], "FAIL", check)
+        self.assertIn("schema root must be an object", check["summary"])
+
+    def test_an_unreadable_schema_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.make_bundle(Path(directory), b"\xff\xfe not utf-8")
+            check = doctor.check_plugin_bundle(root)
+        self.assertEqual(check["status"], "FAIL", check)
+
+
 if __name__ == "__main__":
     unittest.main()

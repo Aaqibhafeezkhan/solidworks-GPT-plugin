@@ -108,8 +108,14 @@ def check_plugin_bundle(plugin_root: Path) -> Dict[str, Any]:
             raise ValueError("manifest version is empty")
         if len(skill_files) != 5:
             raise ValueError(f"expected 5 skills, found {len(skill_files)}")
-        if not (plugin_root / "schemas" / "feedback-submission.schema.json").is_file():
+        schema_path = plugin_root / "schemas" / "feedback-submission.schema.json"
+        if not schema_path.is_file():
             raise ValueError("feedback schema is missing")
+        # The bundle check promises a working schema, not just a file: read it as
+        # UTF-8 JSON and require an object root, or the plugin fails to load it later.
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        if not isinstance(schema, dict):
+            raise ValueError("feedback schema root must be an object")
     except (KeyError, OSError, ValueError, json.JSONDecodeError) as exc:
         return result(
             "plugin_bundle",
