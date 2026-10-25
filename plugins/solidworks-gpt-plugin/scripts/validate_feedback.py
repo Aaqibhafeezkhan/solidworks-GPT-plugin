@@ -33,10 +33,12 @@ def require_string(value: Any, location: str) -> str:
 
 
 def validate_items(payload: dict[str, Any], key: str) -> None:
-    items = payload.get(key)
-    if items is None:
+    if key not in payload:
         return
-    if not isinstance(items, list) or not items:
+    items = payload[key]
+    if not isinstance(items, list):
+        raise ValidationError(f"{key} must be an array")
+    if not items:
         raise ValidationError(f"{key} must be omitted when empty")
 
     for index, raw_item in enumerate(items):
