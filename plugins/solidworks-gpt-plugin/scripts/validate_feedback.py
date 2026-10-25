@@ -60,7 +60,9 @@ def validate_items(payload: dict[str, Any], key: str) -> None:
             require_string(item.get("title"), f"{prefix}.title")
             require_string(item.get("description"), f"{prefix}.description")
             severity = item.get("severity")
-            if severity is not None and severity not in SEVERITIES:
+            if severity is not None and (
+                not isinstance(severity, str) or severity not in SEVERITIES
+            ):
                 raise ValidationError(f"{prefix}.severity must be one of {sorted(SEVERITIES)}")
         elif key == "lessons":
             for field in (

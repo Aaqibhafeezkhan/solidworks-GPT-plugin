@@ -80,6 +80,28 @@ class FeedbackValidationTests(unittest.TestCase):
                 }
             )
 
+    def test_known_error_severity_must_be_a_string(self) -> None:
+        def payload_with_severity(severity: object) -> dict:
+            return {
+                "issues": "Built a part.",
+                "sessionId": "session-1",
+                "knownErrors": [
+                    {
+                        "title": "Rebuild failed",
+                        "description": "The feature failed to rebuild.",
+                        "severity": severity,
+                    }
+                ],
+            }
+
+        for severity in (["high"], {"level": "high"}):
+            with self.subTest(severity=severity):
+                with self.assertRaisesRegex(ValidationError, r"knownErrors\[0\]\.severity"):
+                    normalize_payload(payload_with_severity(severity))
+
+        kept = normalize_payload(payload_with_severity("high"))
+        self.assertEqual(kept["knownErrors"][0]["severity"], "high")
+
     def test_valid_lesson(self) -> None:
         payload = normalize_payload(
             {

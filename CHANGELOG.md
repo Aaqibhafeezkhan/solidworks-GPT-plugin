@@ -21,6 +21,9 @@ All notable changes to this project are documented here. The format follows
   `curl.exe` on Windows. In Windows PowerShell 5.1 `curl` is an alias for
   `Invoke-WebRequest`, so every KB command as written (`curl -sS "..."`)
   failed with "A parameter cannot be found that matches parameter name 'sS'".
+- A `knownErrors` entry whose `severity` is a list or an object no longer
+  crashes `validate_feedback.py` or `submit_feedback.py` with a `TypeError`
+  traceback. It gets the usual validation error instead.
 
 ### Added
 
