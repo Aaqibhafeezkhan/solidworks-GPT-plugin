@@ -78,6 +78,45 @@ class ValidateFeedbackStdinTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 1)
         self.assertIn("Invalid feedback payload: images must be an array", completed.stderr)
 
+    def test_unsupported_image_content_type_is_rejected(self) -> None:
+        base = {"issues": "issue", "sessionId": "session-1"}
+
+        def image(content_type: str) -> dict:
+            return {
+                "filename": "fixture.png",
+                "contentType": content_type,
+                "dataBase64": "Zml4dHVyZQ==",
+            }
+
+        for content_type in (
+            "image/png",
+            "image/jpeg",
+            "image/bmp",
+            "image/tiff",
+            "image/gif",
+        ):
+            with self.subTest(content_type=content_type):
+                payload = {**base, "images": [image(content_type)]}
+                self.assertEqual(normalize_payload(payload), payload)
+
+        unsupported = {**base, "images": [image("text/plain")]}
+        with self.assertRaises(ValidationError) as error:
+            normalize_payload(unsupported)
+        self.assertIn("images[0].contentType", str(error.exception))
+
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            payload_path.write_text(json.dumps(unsupported), encoding="utf-8")
+            completed = subprocess.run(
+                [sys.executable, str(SCRIPT), str(payload_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("Invalid feedback payload: images[0].contentType", completed.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

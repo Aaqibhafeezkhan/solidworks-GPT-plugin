@@ -14,6 +14,8 @@ from typing import Any
 ARRAY_KEYS = ("images", "instructions", "macros", "knownErrors", "lessons")
 SEVERITIES = {"low", "medium", "high", "critical"}
 LANGUAGES = {"python", "vba", "swapi"}
+# The feedback schema accepts only these image types.
+IMAGE_CONTENT_TYPES = ("image/png", "image/jpeg", "image/bmp", "image/tiff", "image/gif")
 
 
 class ValidationError(ValueError):
@@ -46,7 +48,11 @@ def validate_items(payload: dict[str, Any], key: str) -> None:
         prefix = f"{key}[{index}]"
         if key == "images":
             require_string(item.get("filename"), f"{prefix}.filename")
-            require_string(item.get("contentType"), f"{prefix}.contentType")
+            content_type = require_string(item.get("contentType"), f"{prefix}.contentType")
+            if content_type not in IMAGE_CONTENT_TYPES:
+                raise ValidationError(
+                    f"{prefix}.contentType must be one of {sorted(IMAGE_CONTENT_TYPES)}"
+                )
             require_string(item.get("dataBase64"), f"{prefix}.dataBase64")
         elif key == "instructions":
             require_string(item.get("content"), f"{prefix}.content")
