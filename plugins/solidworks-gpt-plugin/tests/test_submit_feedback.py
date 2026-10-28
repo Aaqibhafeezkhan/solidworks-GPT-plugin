@@ -237,12 +237,10 @@ class SubmitFeedbackHostValidationTests(unittest.TestCase):
                         if dry_run:
                             argv.append("--dry-run")
                         stderr = io.StringIO()
-                        with (
-                            patch("sys.argv", argv),
-                            patch("subprocess.run") as transport,
-                            patch("shutil.which", return_value="curl"),
-                            contextlib.redirect_stderr(stderr),
-                        ):
+                        with patch("sys.argv", argv), \
+                                patch("subprocess.run") as transport, \
+                                patch("shutil.which", return_value="curl"), \
+                                contextlib.redirect_stderr(stderr):
                             result = submit_feedback_main()
 
                         self.assertEqual(result, 1)
