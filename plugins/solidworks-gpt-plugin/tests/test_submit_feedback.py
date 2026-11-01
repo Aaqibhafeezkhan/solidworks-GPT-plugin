@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -8,11 +10,15 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "submit_feedback.py"
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
+SCRIPT = SCRIPT_DIR / "submit_feedback.py"
+sys.path.insert(0, str(SCRIPT_DIR))
+from submit_feedback import main as submit_feedback_main
 
 # Typical CAD notes: a diameter sign, degrees, an arrow, a comparison and Persian.
 ISSUES = "Hole Ø10 at 45° → fillet ≥ 2 mm; سوراخ"
@@ -200,6 +206,123 @@ class SubmitFeedbackStateTests(_LocalServerTests):
             )
             stored = json.loads((Path(directory) / "state.json").read_text(encoding="utf-8"))
             self.assertNotIn("lastFeedbackId", stored)
+
+
+
+class SubmitFeedbackHostValidationTests(unittest.TestCase):
+    def test_credentials_are_rejected_without_transport_or_disclosure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            payload_path.write_text(
+                json.dumps({"issues": "valid feedback", "sessionId": "session-1"}),
+                encoding="utf-8",
+            )
+            state_path = Path(directory) / "state.json"
+            original_state = json.dumps({"sessionId": "session-1"})
+            state_path.write_text(original_state, encoding="utf-8")
+            host = "https://fixture-user:fixture-password@kb.example.test/tenant"
+            for dry_run in (False, True):
+                with self.subTest(dry_run=dry_run):
+                    argv = [str(SCRIPT), str(payload_path), "--state", str(state_path),
+                            "--host", host, "--verbose"]
+                    if dry_run:
+                        argv.append("--dry-run")
+                    stderr = io.StringIO()
+                    stdout = io.StringIO()
+                    with contextlib.ExitStack() as stack:
+                        stack.enter_context(patch("sys.argv", argv))
+                        transport = stack.enter_context(patch("subprocess.run"))
+                        stack.enter_context(patch("shutil.which", return_value="curl"))
+                        stack.enter_context(contextlib.redirect_stderr(stderr))
+                        stack.enter_context(contextlib.redirect_stdout(stdout))
+                        result = submit_feedback_main()
+                    self.assertEqual(result, 1)
+                    transport.assert_not_called()
+                    self.assertIn("credentials are not allowed", stderr.getvalue())
+                    output = stderr.getvalue() + stdout.getvalue()
+                    self.assertNotIn("fixture-user", output)
+                    self.assertNotIn("fixture-password", output)
+                    self.assertEqual(state_path.read_text(encoding="utf-8"), original_state)
+
+    def test_valid_base_path_reaches_transport_and_records_success(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            payload_path.write_text(
+                json.dumps({"issues": "valid feedback", "sessionId": "session-1"}),
+                encoding="utf-8",
+            )
+            state_path = Path(directory) / "state.json"
+            hosts = (
+                ("https://kb.example.test/tenant/", "https://kb.example.test/tenant/api/feedback"),
+                ("http://kb.example.test:8080/tenant", "http://kb.example.test:8080/tenant/api/feedback"),
+            )
+            for host, endpoint in hosts:
+                with self.subTest(host=host):
+                    state_path.write_text(json.dumps({"sessionId": "session-1"}), encoding="utf-8")
+                    argv = [str(SCRIPT), str(payload_path), "--state", str(state_path),
+                            "--host", host, "--attempts", "1"]
+                    completed = subprocess.CompletedProcess(
+                        [], 0, b'{"id":"fb-1"}\n201', b""
+                    )
+                    with contextlib.ExitStack() as stack:
+                        stack.enter_context(patch("sys.argv", argv))
+                        transport = stack.enter_context(patch("subprocess.run", return_value=completed))
+                        stack.enter_context(patch("shutil.which", return_value="curl"))
+                        stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                        result = submit_feedback_main()
+                    self.assertEqual(result, 0)
+                    transport.assert_called_once()
+                    command = transport.call_args.args[0]
+                    self.assertEqual(command[command.index("POST") + 1], endpoint)
+                    stored_state = json.loads(state_path.read_text(encoding="utf-8"))
+                    self.assertEqual(stored_state["lastFeedbackId"], FEEDBACK_ID)
+
+    def test_query_and_fragment_hosts_fail_before_transport_even_in_dry_run(self) -> None:
+        payload = {"issues": "valid feedback", "sessionId": "session-1"}
+        invalid_hosts = (
+            "https://kb.example.test?tenant=demo",
+            "https://kb.example.test#section",
+            "https://kb.example.test?/",
+            "https://kb.example.test#/",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            payload_path.write_text(json.dumps(payload), encoding="utf-8")
+            state_path = Path(directory) / "state.json"
+            state_path.write_text(json.dumps({"sessionId": "session-1"}), encoding="utf-8")
+
+            for host in invalid_hosts:
+                for dry_run in (False, True):
+                    with self.subTest(host=host, dry_run=dry_run):
+                        argv = [
+                            str(SCRIPT),
+                            str(payload_path),
+                            "--state",
+                            str(state_path),
+                            "--host",
+                            host,
+                            "--verbose",
+                        ]
+                        if dry_run:
+                            argv.append("--dry-run")
+                        stderr = io.StringIO()
+                        with patch("sys.argv", argv), \
+                                patch("subprocess.run") as transport, \
+                                patch("shutil.which", return_value="curl"), \
+                                contextlib.redirect_stderr(stderr):
+                            result = submit_feedback_main()
+
+                        self.assertEqual(result, 1)
+                        transport.assert_not_called()
+                        self.assertNotIn("tenant=demo", stderr.getvalue())
+                        self.assertNotIn("#section", stderr.getvalue())
+                        self.assertIn("query strings and fragments", stderr.getvalue())
+
+    def test_valid_base_path_is_preserved_by_host_validation(self) -> None:
+        from doctor import validate_feedback_host
+
+        valid, _, reason = validate_feedback_host("https://kb.example.test/tenant/api")
+        self.assertTrue(valid, reason)
 
 
 if __name__ == "__main__":

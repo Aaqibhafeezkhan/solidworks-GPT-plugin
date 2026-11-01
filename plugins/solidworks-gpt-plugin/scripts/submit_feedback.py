@@ -19,6 +19,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from sw_session import load_state, mark_feedback_submitted  # noqa: E402
+from doctor import validate_feedback_host  # noqa: E402
 from validate_feedback import (  # noqa: E402
     ValidationError,
     normalize_payload,
@@ -67,10 +68,10 @@ def main() -> int:
         if state_session and state_session != payload["sessionId"]:
             raise ValidationError("payload sessionId does not match local session state")
 
+        valid_host, _, host_reason = validate_feedback_host(args.host)
+        if not valid_host:
+            raise ValidationError(f"SW_KB_HOST is invalid: {host_reason}")
         host = args.host.rstrip("/")
-        parsed = urlparse(host)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValidationError("SW_KB_HOST must be an absolute HTTP(S) URL")
         if args.attempts < 1 or args.attempts > 3:
             raise ValidationError("attempts must be between 1 and 3")
         if args.dry_run:

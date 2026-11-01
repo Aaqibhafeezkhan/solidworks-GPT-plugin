@@ -28,6 +28,13 @@ jobs:
         python-version:
           - "3.9"
           - "3.13"
+        # Python 3.9 builds are unavailable for Ubuntu 26.04.
+        exclude:
+          - os: ubuntu-latest
+            python-version: "3.9"
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.9"
 
     steps:
       - name: Check out repository
