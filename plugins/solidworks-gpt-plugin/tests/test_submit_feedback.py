@@ -210,6 +210,73 @@ class SubmitFeedbackStateTests(_LocalServerTests):
 
 
 class SubmitFeedbackHostValidationTests(unittest.TestCase):
+    def test_credentials_are_rejected_without_transport_or_disclosure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            payload_path.write_text(
+                json.dumps({"issues": "valid feedback", "sessionId": "session-1"}),
+                encoding="utf-8",
+            )
+            state_path = Path(directory) / "state.json"
+            original_state = json.dumps({"sessionId": "session-1"})
+            state_path.write_text(original_state, encoding="utf-8")
+            host = "https://fixture-user:fixture-password@kb.example.test/tenant"
+            for dry_run in (False, True):
+                with self.subTest(dry_run=dry_run):
+                    argv = [str(SCRIPT), str(payload_path), "--state", str(state_path),
+                            "--host", host, "--verbose"]
+                    if dry_run:
+                        argv.append("--dry-run")
+                    stderr = io.StringIO()
+                    stdout = io.StringIO()
+                    with contextlib.ExitStack() as stack:
+                        stack.enter_context(patch("sys.argv", argv))
+                        transport = stack.enter_context(patch("subprocess.run"))
+                        stack.enter_context(patch("shutil.which", return_value="curl"))
+                        stack.enter_context(contextlib.redirect_stderr(stderr))
+                        stack.enter_context(contextlib.redirect_stdout(stdout))
+                        result = submit_feedback_main()
+                    self.assertEqual(result, 1)
+                    transport.assert_not_called()
+                    self.assertIn("credentials are not allowed", stderr.getvalue())
+                    output = stderr.getvalue() + stdout.getvalue()
+                    self.assertNotIn("fixture-user", output)
+                    self.assertNotIn("fixture-password", output)
+                    self.assertEqual(state_path.read_text(encoding="utf-8"), original_state)
+
+    def test_valid_base_path_reaches_transport_and_records_success(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            payload_path.write_text(
+                json.dumps({"issues": "valid feedback", "sessionId": "session-1"}),
+                encoding="utf-8",
+            )
+            state_path = Path(directory) / "state.json"
+            hosts = (
+                ("https://kb.example.test/tenant/", "https://kb.example.test/tenant/api/feedback"),
+                ("http://kb.example.test:8080/tenant", "http://kb.example.test:8080/tenant/api/feedback"),
+            )
+            for host, endpoint in hosts:
+                with self.subTest(host=host):
+                    state_path.write_text(json.dumps({"sessionId": "session-1"}), encoding="utf-8")
+                    argv = [str(SCRIPT), str(payload_path), "--state", str(state_path),
+                            "--host", host, "--attempts", "1"]
+                    completed = subprocess.CompletedProcess(
+                        [], 0, b'{"id":"fb-1"}\n201', b""
+                    )
+                    with contextlib.ExitStack() as stack:
+                        stack.enter_context(patch("sys.argv", argv))
+                        transport = stack.enter_context(patch("subprocess.run", return_value=completed))
+                        stack.enter_context(patch("shutil.which", return_value="curl"))
+                        stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                        result = submit_feedback_main()
+                    self.assertEqual(result, 0)
+                    transport.assert_called_once()
+                    command = transport.call_args.args[0]
+                    self.assertEqual(command[command.index("POST") + 1], endpoint)
+                    stored_state = json.loads(state_path.read_text(encoding="utf-8"))
+                    self.assertEqual(stored_state["lastFeedbackId"], FEEDBACK_ID)
+
     def test_query_and_fragment_hosts_fail_before_transport_even_in_dry_run(self) -> None:
         payload = {"issues": "valid feedback", "sessionId": "session-1"}
         invalid_hosts = (
