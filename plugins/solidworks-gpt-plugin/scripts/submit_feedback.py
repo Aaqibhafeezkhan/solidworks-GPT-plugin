@@ -68,10 +68,10 @@ def main() -> int:
         if state_session and state_session != payload["sessionId"]:
             raise ValidationError("payload sessionId does not match local session state")
 
-        host = args.host.rstrip("/")
-        valid_host, _, host_reason = validate_feedback_host(host)
+        valid_host, _, host_reason = validate_feedback_host(args.host)
         if not valid_host:
             raise ValidationError(f"SW_KB_HOST is invalid: {host_reason}")
+        host = args.host.rstrip("/")
         if args.attempts < 1 or args.attempts > 3:
             raise ValidationError("attempts must be between 1 and 3")
         if args.dry_run:

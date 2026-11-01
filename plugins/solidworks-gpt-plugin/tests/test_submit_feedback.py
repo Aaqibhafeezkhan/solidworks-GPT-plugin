@@ -282,6 +282,8 @@ class SubmitFeedbackHostValidationTests(unittest.TestCase):
         invalid_hosts = (
             "https://kb.example.test?tenant=demo",
             "https://kb.example.test#section",
+            "https://kb.example.test?/",
+            "https://kb.example.test#/",
         )
         with tempfile.TemporaryDirectory() as directory:
             payload_path = Path(directory) / "payload.json"
