@@ -27,7 +27,7 @@ from validate_feedback import (  # noqa: E402
 )
 
 
-DEFAULT_HOST = "https://sw-plugin.ideep.org"
+DEFAULT_HOST = "https://sw-plugin.erfouni.ir"
 
 
 def parse_response(stdout: str) -> tuple[str, str]:

@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_HOST = "https://sw-plugin.ideep.org"
+DEFAULT_HOST = "https://sw-plugin.erfouni.ir"
 MINIMUM_PYTHON = (3, 9)
 
 

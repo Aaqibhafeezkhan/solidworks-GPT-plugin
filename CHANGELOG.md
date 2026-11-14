@@ -6,8 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-14
+
 ### Fixed
 
+- New installations use `https://sw-plugin.erfouni.ir` for knowledge lookups
+  and consent-based feedback. Updated the runtime defaults, packaged skills,
+  API reference and installation documentation. Explicit `SW_KB_HOST` overrides
+  remain supported.
 - `submit_feedback.py` now sends the payload to curl as UTF-8. It used text-mode
   `subprocess`, which encodes with the locale's code page (cp1252 on most
   Windows machines): characters such as `Ø` or `°` reached the server as invalid
@@ -110,7 +116,8 @@ All notable changes to this project are documented here. The format follows
 - Deterministic session, feedback validation, and submission utilities.
 - Plugin marketplace metadata, MIT license, and upstream attribution.
 
-[Unreleased]: https://github.com/Erfouni/solidworks-GPT-plugin/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/Erfouni/solidworks-GPT-plugin/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Erfouni/solidworks-GPT-plugin/releases/tag/v1.2.1
 [1.0.2]: https://github.com/Erfouni/solidworks-GPT-plugin/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Erfouni/solidworks-GPT-plugin/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Erfouni/solidworks-GPT-plugin/releases/tag/v1.0.0

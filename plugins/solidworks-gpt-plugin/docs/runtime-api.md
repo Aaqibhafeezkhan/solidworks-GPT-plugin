@@ -1,7 +1,7 @@
 # Runtime knowledge-base API
 
 The skills use the public camelCase API at `SW_KB_HOST`, defaulting to
-`https://sw-plugin.ideep.org`. All calls must use shell `curl` with the complete
+`https://sw-plugin.erfouni.ir`. All calls must use shell `curl` with the complete
 URL quoted. Runtime requests do not use an authorization header.
 
 On Windows, run `curl.exe` instead of `curl`: in Windows PowerShell 5.1

@@ -27,7 +27,7 @@ On the first SolidWorks request in a Codex task, run `scripts/sw_session.py
 start` once. Keep the returned UUID as `SESSION_ID` for the rest of the task.
 Never regenerate it mid-task. Include it as `sessionId` in every feedback POST.
 
-Use `SW_KB_HOST` when set; otherwise use `https://sw-plugin.ideep.org`.
+Use `SW_KB_HOST` when set; otherwise use `https://sw-plugin.erfouni.ir`.
 
 ## Mandatory order
 

@@ -28,7 +28,7 @@ knowledge base (KB) server**. The loop is:
    asks the user for consent (interactive prompt with "Yes / Always / Skip"), and POSTs it to
    `POST /api/feedback` on the KB server. The KB grows from every session.
 
-**KB server:** `https://sw-plugin.ideep.org` (configurable via env var `SW_KB_HOST`).
+**KB server:** `https://sw-plugin.erfouni.ir` (configurable via env var `SW_KB_HOST`).
 The runtime API used by the agent is **public — no auth**. All requests are plain HTTPS + JSON.
 
 **Critical transport rule:** the agent must call the KB with **`curl` through the shell**
@@ -58,7 +58,7 @@ Everything else (API contracts, payload schemas, protocol steps) transfers verba
 ## 3. Session-start protocol text (inject into every session)
 
 This is what the SessionStart hook injects. Reproduce it (adapted names) in AGENTS.md /
-system context for Codex. `{KB_HOST}` = `SW_KB_HOST` env var, default `https://sw-plugin.ideep.org`.
+system context for Codex. `{KB_HOST}` = `SW_KB_HOST` env var, default `https://sw-plugin.erfouni.ir`.
 `{SESSION_ID}` = a UUIDv4 generated once per conversation and **never regenerated mid-session**.
 
 ```
@@ -106,7 +106,7 @@ Original hook implementation details (for parity):
 
 ## 4. KB Server — runtime REST API (the one the agent actually calls)
 
-Base URL: `{SW_KB_HOST}` — default `https://sw-plugin.ideep.org`.
+Base URL: `{SW_KB_HOST}` — default `https://sw-plugin.erfouni.ir`.
 **All runtime endpoints are public (no auth header).** Content type: JSON.
 Field naming on the runtime API is **camelCase**.
 
@@ -417,7 +417,7 @@ python3 << 'PYEOF'
 import subprocess, json
 
 SESSION_ID = "<SESSION_ID from session context>"
-KB_HOST = "https://sw-plugin.ideep.org"
+KB_HOST = "https://sw-plugin.erfouni.ir"
 
 payload = { "issues": """...""", "sessionId": SESSION_ID,
             "instructions": [...], "macros": [...],
@@ -495,7 +495,7 @@ to talk to the authenticated backend, the contract is:
 |---|---|
 | `~/.sw-feedback-pref` | contains `always` if the user opted into auto-send |
 | `.sw-learner-state.json` (cwd) | `{ partId, partNumber, sessionId, payloadVersion, lastBuiltAt, lastFeedbackId }` |
-| env `SW_KB_HOST` | KB base URL override (default `https://sw-plugin.ideep.org`) |
+| env `SW_KB_HOST` | KB base URL override (default `https://sw-plugin.erfouni.ir`) |
 
 ---
 
